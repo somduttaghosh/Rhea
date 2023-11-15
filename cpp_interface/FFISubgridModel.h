@@ -41,10 +41,8 @@ class FFISubgridModel{
   // assume Minkowski metric
   torch::Tensor X_from_F4_Minkowski(const torch::Tensor F4, const torch::Tensor u){
     int nsims = F4.size(0);
-
     // copy the input tensor so the values don't change
     torch::Tensor F4_flat = F4.detach().clone().reshape({nsims, 4, 2*NF}); // [# grid cells, xyzt, species]
-
     // calculate the total number density
     torch::Tensor ndens_total = torch::zeros({nsims});
     for(int a=0; a<2*NF; a++){
@@ -86,7 +84,7 @@ class FFISubgridModel{
 
     // Deserialize the ScriptModule from a file using torch::jit::load().
     model = torch::jit::load(filename.c_str(), device);
-
+    
     // set the model to evaluation mode
     model.eval();
   }
