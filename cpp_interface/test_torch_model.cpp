@@ -12,6 +12,12 @@ const H5std_string FILE_NAME("test.out.h5"); // input file
 const int xgrid = 201;
 const int ygrid = 201;
 const int zgrid = 101;
+
+const int ngridzones = 2;
+
+const int NX = 3;
+const int NY = 4;
+const int NZ = 2;
 //======//
 // main //
 //======//
@@ -26,229 +32,248 @@ int main(int argc, const char* argv[]){
   /*
   input array initialization
   */
-  int i, j, k, t;
-  float data_out[3][4][1][1];
-  for (j = 0; j < 3; j++)
+  int i, j, k, c;
+  float data_out[2][NX][NY];
+   
+  for (j = 0; j < 2; j++)
   {
-    for (i = 0; i < 4; i++)
-    {
-      for (k = 0; k < 1; k++)
-      {
-        for (t = 0; t < 1; t++)
-          data_out[j][i][k][t] = 0.0;
-      }
+   for (i = 0; i < NX; i++)
+   {
+    for (k = 0; k < NY; k++)
+     data_out[j][i][k] = 0.0;
     }
+   }
+   //------------------simulation data-------------------//
+   H5File file (FILE_NAME, H5F_ACC_RDONLY); // open simulation file
+   const char* datasets_fn[3] = {"/fn_e(1|ccm)", "/fn_a(1|ccm)", "/fn_x(1|ccm)"};
+   const char* datasets_n[3] = {"/n_e(1|ccm)", "/n_a(1|ccm)", "/n_x(1|ccm)"};
+  for (c = 0; c < 2; c++)
+  {
+   hsize_t offset[4]; //hyperslab offset in the file
+   hsize_t count[4]; //size of the hyperslab in the file;
+   offset[0] = 0;
+   offset[1] = c;
+   offset[2] = 0;
+   offset[3] = 0;
+   count[0] = 3;
+   count[1] = 1;
+   count[2] = 1;
+   count[3] = 1;
+
+   hsize_t dimsm[4]; //memory space dimensions
+   dimsm[0] = NX;
+   dimsm[1] = NY;
+   dimsm[2] = 2;
+   dimsm[3] = 1;
+
+
+  for (i = 0; i < 3; i++)
+  {
+   cout << datasets_fn[i] << endl;
+   DataSet d = file.openDataSet(datasets_fn[i]);
+   DataSpace dataspace = d.getSpace();
+   dataspace.selectHyperslab(H5S_SELECT_SET, count, offset);
+   DataSpace memspace(4, dimsm);
+   /*
+    * Define memory hyperslab
+    */
+   hsize_t offset_out[4]; // hyperslab offset in memory
+   hsize_t count_out[4]; // size of the hyperslab in memory
+   offset_out[0] =i; 
+   offset_out[1] =0; 
+   offset_out[2] =c; 
+   offset_out[3] =0; 
+   count_out[0] = 1;
+   count_out[1] = 3;
+   count_out[2] = 1;
+   count_out[3] = 1;
+   memspace.selectHyperslab(H5S_SELECT_SET, count_out, offset_out);
+   /*
+    * Read data from hyperslab in the file into the hyperslab in
+    * memory and display the data.
+    */
+   d.read(data_out, PredType::NATIVE_FLOAT, memspace, dataspace);
   }
 
-  //------------------simulation data-------------------//
-  H5File file (FILE_NAME, H5F_ACC_RDONLY); // open simulation file
+  hsize_t offsetn[3]; // hyperslab offset in the file
+  hsize_t countn[3];  // size of the hyperslab in the file
+  offsetn[0] = 0; 
+  offsetn[1] = 1; 
+  offsetn[2] = c; 
+  countn[0] = 1;
+  countn[1] = 1;
+  countn[2] = 1;
+
+  hsize_t dimsmn[3]; // memory space dimensions
+  dimsmn[0] = NX;
+  dimsmn[1] = NY;
+  dimsmn[2] = 2;
+
+  for (j = 0; j < 3; j++)
+  {
+   cout << datasets_n[j] << endl;
+   DataSet d = file.openDataSet(datasets_n[j]);
+   DataSpace dataspace = d.getSpace();
+   dataspace.selectHyperslab(H5S_SELECT_SET, countn, offsetn);
+   DataSpace memspace(3, dimsmn);
+   /*
+    * Define memory hyperslab
+    */
+   hsize_t offset_out1[3]; // hyperslab offset in memory
+   hsize_t count_out1[3];  // size of the hyperslab in memory
+   offset_out1[0] = j; 
+   offset_out1[1] = 3; 
+   offset_out1[2] = c;
+   count_out1[0] = 1;
+   count_out1[1] = 1;
+   count_out1[2] = 1;
+   memspace.selectHyperslab(H5S_SELECT_SET, count_out1, offset_out1);
+   /*
+    * Read data from hyperslab in the file into the hyperslab in
+    * memory and display the data.
+    */
+   d.read(data_out, PredType::NATIVE_FLOAT, memspace, dataspace);
+  }
+  }
+   for (j = 0; j < 2; j++)
+   { 
+    for (i = 0; i < NX; i++)
+    {
+     for (k = 0; k < NY; k++)
+      cout << data_out[j][i][k] << " ";
+      cout << endl;
+   }
+   cout << endl;
+   }
+  cout << data_out[0][0][0] << endl; 
+  cout << data_out[0][0][1] << endl; 
+  cout << data_out[0][0][2] << endl; 
+  cout << data_out[0][0][3] << endl; 
+  cout << data_out[0][1][0] << endl; 
+  cout << data_out[0][1][1] << endl; 
+  cout << data_out[0][1][2] << endl; 
+  cout << data_out[0][1][3] << endl; 
+  cout << data_out[0][2][0] << endl; 
+  cout << data_out[0][2][1] << endl; 
+  cout << data_out[0][2][2] << endl; 
+  cout << data_out[0][2][3] << endl; 
+  cout << data_out[1][0][0] << endl; 
+  cout << data_out[1][0][1] << endl; 
+  cout << data_out[1][0][2] << endl; 
+  cout << data_out[1][0][3] << endl; 
+  cout << data_out[1][1][0] << endl; 
+  cout << data_out[1][1][1] << endl; 
+  cout << data_out[1][1][2] << endl; 
+  cout << data_out[1][1][3] << endl; 
+  cout << data_out[1][2][0] << endl; 
+  cout << data_out[1][2][1] << endl; 
+  cout << data_out[1][2][2] << endl; 
+  cout << data_out[1][2][3] << endl; 
   
-  hsize_t offset[4]; //hyperslab offset in the file
-  hsize_t count[4]; //size of the hyperslab in the file;
-  offset[0] = 0;
-  offset[1] = 0;
-  offset[2] = 0;
-  offset[3] = 0;
-  count[0] = 1;
-  count[1] = 3;
-  count[2] = 1;
-  count[3] = 1;
-
-  hsize_t dimsm[4]; //memory space dimensions
-  dimsm[0] = 3;
-  dimsm[1] = 4;
-  dimsm[2] = 1;
-  dimsm[3] = 1;
-
-  DataSet dataset1 = file.openDataSet("/fn_e(1|ccm)");
-  DataSpace dataspace1 = dataset1.getSpace();
-  dataspace1.selectHyperslab(H5S_SELECT_SET, count, offset);
-  DataSpace memspace1(4, dimsm);
-  /*
-   * Define memory hyperslab
-   */
-  hsize_t offset_out1[4]; // hyperslab offset in memory
-  hsize_t count_out1[4]; // size of the hyperslab in memory
-  offset_out1[0] =0; 
-  offset_out1[1] =0; 
-  offset_out1[2] =0; 
-  offset_out1[3] =0; 
-  count_out1[0] = 1;
-  count_out1[1] = 3;
-  count_out1[2] = 1;
-  count_out1[3] = 1;
-  memspace1.selectHyperslab(H5S_SELECT_SET, count_out1, offset_out1);
-  /*
-   * Read data from hyperslab in the file into the hyperslab in
-   * memory and display the data.
-   */
-  dataset1.read(data_out, PredType::NATIVE_FLOAT, memspace1, dataspace1);
-
-  DataSet dataset2 = file.openDataSet("/fn_a(1|ccm)");
-  DataSpace dataspace2 = dataset2.getSpace();
-  dataspace2.selectHyperslab(H5S_SELECT_SET, count, offset);
-  DataSpace memspace2(4, dimsm);
-  /*
-   * Define memory hyperslab
-   */
-  hsize_t offset_out2[4]; // hyperslab offset in memory
-  hsize_t count_out2[4];  // size of the hyperslab in memory
-  offset_out2[0] = 1;
-  offset_out2[1] = 0;
-  offset_out2[2] = 0;
-  offset_out2[3] = 0;
-  count_out2[0] = 1;
-  count_out2[1] = 3;
-  count_out2[2] = 1;
-  count_out2[3] = 1;
-  memspace2.selectHyperslab(H5S_SELECT_SET, count_out2, offset_out2);
-  /*
-   * Read data from hyperslab in the file into the hyperslab in
-   * memory and display the data.
-   */
-  dataset2.read(data_out, PredType::NATIVE_FLOAT, memspace2, dataspace2);
-
-  DataSet dataset3 = file.openDataSet("/fn_x(1|ccm)");
-  DataSpace dataspace3 = dataset3.getSpace();
-  dataspace3.selectHyperslab(H5S_SELECT_SET, count, offset);
-  DataSpace memspace3(4, dimsm);
-  /*
-   * Define memory hyperslab
-   */
-  hsize_t offset_out3[4]; //hyperslab offset in memory
-  hsize_t count_out3[4];  //size of the hyperslab in memory
-  offset_out3[0] = 2;
-  offset_out3[1] = 0; 
-  offset_out3[2] = 0; 
-  offset_out3[3] = 0;
-  count_out3[0] = 1;
-  count_out3[1] = 3;
-  count_out3[2] = 1;
-  count_out3[3] = 1;
-  memspace3.selectHyperslab(H5S_SELECT_SET, count_out3, offset_out3);
-  /*
-   * Read data from hyperslab in the file into the hyperslab in
-   * memory and display the data.
-   */
-  dataset3.read(data_out, PredType::NATIVE_FLOAT, memspace3, dataspace3);
-
-  hsize_t offset1[3]; // hyperslab offset in the file
-  hsize_t count1[3];  // size of the hyperslab in the file
-  offset1[0] = 0; 
-  offset1[1] = 0; 
-  offset1[2] = 0; 
-  count1[0] = 1;
-  count1[1] = 1;
-  count1[2] = 1;
-
-  hsize_t dimsm1[3]; // memory space dimensions
-  dimsm1[0] = 3;
-  dimsm1[1] = 4;
-  dimsm1[2] = 1;
-
-  DataSet dataset4 = file.openDataSet("/n_e(1|ccm)");
-  DataSpace dataspace4 = dataset4.getSpace();
-  dataspace4.selectHyperslab(H5S_SELECT_SET, count1, offset1);
-  DataSpace memspace4(3, dimsm1);
-  /*
-   * Define memory hyperslab
-   */
-  hsize_t offset_out4[3]; // hyperslab offset in memory
-  hsize_t count_out4[3];  // size of the hyperslab in memory
-  offset_out4[0] = 0; 
-  offset_out4[1] = 3; 
-  offset_out4[2] = 0;
-  count_out4[0] = 1;
-  count_out4[1] = 1;
-  count_out4[2] = 1;
-  memspace4.selectHyperslab(H5S_SELECT_SET, count_out4, offset_out4);
-  /*
-   * Read data from hyperslab in the file into the hyperslab in
-   * memory and display the data.
-   */
-  dataset4.read(data_out, PredType::NATIVE_FLOAT, memspace4, dataspace4);
-  
-  DataSet dataset5 = file.openDataSet("/n_a(1|ccm)");
-  DataSpace dataspace5 =dataset5.getSpace();
-  dataspace5.selectHyperslab(H5S_SELECT_SET, count1, offset1);
-  DataSpace memspace5(3, dimsm1);
-  /*
-   * Define memory hyperslab
-   */
-  hsize_t offset_out5[3]; // hyperslab offset in memory
-  hsize_t count_out5[3];  // size of the hyperslab in memory
-  offset_out5[0] = 1; 
-  offset_out5[1] = 3; 
-  offset_out5[2] = 0; 
-  count_out5[0] = 1;
-  count_out5[1] = 1;
-  count_out5[2] = 1;
-  memspace5.selectHyperslab(H5S_SELECT_SET, count_out5, offset_out5);
-  /*
-   * Read data from hyperslab in the file into the hyoerslab in
-   * memory and display the data.
-   */
-  dataset5.read(data_out, PredType::NATIVE_FLOAT, memspace5, dataspace5);
-  
-  DataSet dataset6 = file.openDataSet("/n_x(1|ccm)");
-  DataSpace dataspace6 = dataset6.getSpace();
-  dataspace6.selectHyperslab(H5S_SELECT_SET, count1, offset1);
-  DataSpace memspace6(3, dimsm1);
-  /*
-   * Define memory hyperslab
-   */
-  hsize_t offset_out6[3]; // hyperslab offset in memory
-  hsize_t count_out6[3]; // size of the hyperslab in memory
-  offset_out6[0] = 2;
-  offset_out6[1] = 3;
-  offset_out6[2] = 0;
-  count_out6[0] = 1;
-  count_out6[1] = 1;
-  count_out6[2] = 1;
-  memspace6.selectHyperslab(H5S_SELECT_SET, count_out6, offset_out6);
-  /*
-   * Read data from hyperslab in the file into the hyperslab in 
-   * memory and display the data.
-   */
-  dataset6.read(data_out, PredType::NATIVE_FLOAT, memspace6, dataspace6);
-
   //==================================================//
   // Create a sample tensor to pass through the model //
   //==================================================//
   // dimensions are [ngridzones, xyzt, nu/nubar, NF]
-  const int ngridzones = 10;
   torch::Tensor F4_in = torch::zeros({ngridzones,4,2,3});
+  F4_in.index_put_({0, 0, 0, 0}, data_out[0][0][0]);
+  F4_in.index_put_({0, 0, 1, 0}, data_out[0][2][0]);
+  F4_in.index_put_({0, 1, 0, 0}, data_out[0][0][2]);
+  F4_in.index_put_({0, 1, 1, 0}, data_out[0][2][2]);
+  F4_in.index_put_({0, 2, 0, 0}, data_out[0][1][0]);
+  F4_in.index_put_({0, 2, 1, 0}, data_out[1][0][0]);
+  F4_in.index_put_({0, 3, 0, 0}, data_out[0][1][2]);
+  F4_in.index_put_({0, 3, 1, 0}, data_out[1][0][2]);
+  F4_in.index_put_({1, 0, 0, 0}, data_out[0][0][1]);
+  F4_in.index_put_({1, 0, 1, 0}, data_out[0][2][1]);
+  F4_in.index_put_({1, 1, 0, 0}, data_out[0][0][3]);
+  F4_in.index_put_({1, 1, 1, 0}, data_out[0][2][3]);
+  F4_in.index_put_({1, 2, 0, 0}, data_out[0][1][1]);
+  F4_in.index_put_({1, 2, 1, 0}, data_out[1][0][1]);
+  F4_in.index_put_({1, 3, 0, 0}, data_out[0][1][3]);
+  F4_in.index_put_({1, 3, 1, 0}, data_out[1][0][3]);
+  
+  F4_in.index_put_({0, 0, 0, 1}, data_out[1][1][0]);
+  F4_in.index_put_({0, 0, 1, 1}, data_out[1][1][0]);
+  F4_in.index_put_({0, 0, 0, 2}, data_out[1][1][0]);
+  F4_in.index_put_({0, 0, 1, 2}, data_out[1][1][0]);
+  
+  F4_in.index_put_({0, 1, 0, 1}, data_out[1][1][2]);
+  F4_in.index_put_({0, 1, 1, 1}, data_out[1][1][2]);
+  F4_in.index_put_({0, 1, 0, 2}, data_out[1][1][2]);
+  F4_in.index_put_({0, 1, 1, 2}, data_out[1][1][2]);
+  
+  F4_in.index_put_({0, 2, 0, 1}, data_out[1][2][0]);
+  F4_in.index_put_({0, 2, 1, 1}, data_out[1][2][0]);
+  F4_in.index_put_({0, 2, 0, 2}, data_out[1][2][0]);
+  F4_in.index_put_({0, 2, 1, 2}, data_out[1][2][0]);
+  
+  F4_in.index_put_({0, 3, 0, 1}, data_out[1][2][2]);
+  F4_in.index_put_({0, 3, 1, 1}, data_out[1][2][2]);
+  F4_in.index_put_({0, 3, 0, 2}, data_out[1][2][2]);
+  F4_in.index_put_({0, 3, 1, 2}, data_out[1][2][2]);
+  
+  F4_in.index_put_({1, 0, 0, 1}, data_out[1][1][1]);
+  F4_in.index_put_({1, 0, 1, 1}, data_out[1][1][1]);
+  F4_in.index_put_({1, 0, 0, 2}, data_out[1][1][1]);
+  F4_in.index_put_({1, 0, 1, 2}, data_out[1][1][1]);
+  
+  F4_in.index_put_({1, 1, 0, 1}, data_out[1][1][3]);
+  F4_in.index_put_({1, 1, 1, 1}, data_out[1][1][3]);
+  F4_in.index_put_({1, 1, 0, 2}, data_out[1][1][3]);
+  F4_in.index_put_({1, 1, 1, 2}, data_out[1][1][3]);
+  
+  F4_in.index_put_({1, 2, 0, 1}, data_out[1][2][1]);
+  F4_in.index_put_({1, 2, 1, 1}, data_out[1][2][1]);
+  F4_in.index_put_({1, 2, 0, 2}, data_out[1][2][1]);
+  F4_in.index_put_({1, 2, 1, 2}, data_out[1][2][1]);
+
+  F4_in.index_put_({1, 3, 0, 1}, data_out[1][2][3]);
+  F4_in.index_put_({1, 3, 1, 1}, data_out[1][2][3]);
+  F4_in.index_put_({1, 3, 0, 2}, data_out[1][2][3]);
+  F4_in.index_put_({1, 3, 1, 2}, data_out[1][2][3]);
+  int a, b, l;
+  a = 0; b = 0;
+  cout << "i j k l a l b" << endl;
   for (i = 0; i < 2; i++)
   {
-    for (j = 0; j < 4; j++)
-      F4_in.index_put_({Slice(), j, i, 0}, data_out[i][j][0][0]);
-  } 
-  for (k = 1; k < 3; k++)
-  {
-    for (i = 0; i < 2; i++)
+   for (j = 0; j < 4; j++)
+   {
+    for (l = 0; l < 3; l ++)
     {
-      for (j = 0; j < 4; j++)
-        F4_in.index_put_({Slice(), j, i, k}, data_out[2][j][0][0]/4.0);
+     for (k = 0; k < 2; k++)
+     {
+      if (i == 1) {
+      a = 1;
+      } 
+      cout << i << j << k << l << a << l << b << endl;
+      //F4_in.index_put_({i, j, k, l}, data_out[a][l][b]);
+      b = b+2;
+      if (b > 3) {
+       break;
+      }
+     }
     }
-  } 
+   }
+  }
+  
+  cout << "input" <<F4_in << endl;
+  cout << endl;
+  
   torch::Tensor u = torch::zeros({ngridzones,4});
   u.index_put_({Slice(),3}, 1.0);
-
+  
   // put the input through the model 10 times
   auto output = F4_in;
   for(int i=0; i<10; i++) output = model.predict_F4_Minkowski(output, u);
-
+  
   // the expected result is an even mixture of all flavors
-  //torch::Tensor F4_expected = torch::zeros({ngridzones,4,2,3});
-  //F4_expected.index_put_({Slice(), 3, Slice(), Slice()}, 1.0);
-  cout << "input" <<F4_in << endl;
-  cout << endl;
+  torch::Tensor F4_expected = torch::zeros({ngridzones,4,2,3});
+  F4_expected.index_put_({Slice(), 3, Slice(), Slice()}, 1.0);
 
   // check that the results are correct
   // by asserting that all elements are equal to 1 with an absolute and relative tolerance of 1e-2
   cout << "output" << output << endl;
-  //assert(torch::allclose(output, F4_in, 1e-2, 1e-2));
-
-  
+  //assert(torch::allclose(output, F4_expected, 1e-2, 1e-2));
+ 
   return 0;
 }
