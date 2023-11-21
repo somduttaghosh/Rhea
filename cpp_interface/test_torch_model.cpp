@@ -87,7 +87,7 @@ int main(int argc, const char* argv[]){
    offset_out[3] =0; 
    count_out[0] = 1;
    count_out[1] = 3;
-   count_out[2] = 1;
+   count_out[2] = 2;
    count_out[3] = 1;
    memspace.selectHyperslab(H5S_SELECT_SET, count_out, offset_out);
    /*
