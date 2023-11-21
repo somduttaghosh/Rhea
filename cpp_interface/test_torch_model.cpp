@@ -183,6 +183,7 @@ int main(int argc, const char* argv[]){
   F4_in.index_put_({0, 2, 1, 0}, data_out[1][0][0]);
   F4_in.index_put_({0, 3, 0, 0}, data_out[0][1][2]);
   F4_in.index_put_({0, 3, 1, 0}, data_out[1][0][2]);
+  
   F4_in.index_put_({1, 0, 0, 0}, data_out[0][0][1]);
   F4_in.index_put_({1, 0, 1, 0}, data_out[0][2][1]);
   F4_in.index_put_({1, 1, 0, 0}, data_out[0][0][3]);
