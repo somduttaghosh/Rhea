@@ -157,11 +157,99 @@ int main(int argc, const char* argv[]){
   // Create a sample tensor to pass through the model //
   //==================================================//
   // dimensions are [ngridzones, xyzt, nu/nubar, NF]
+<<<<<<< HEAD
   //torch::Tensor F4_in = torch::zeros({ngridzones,4,2,3});
   //int l, n, o, p;
   //l = 0; p = 0;
  // for ()  
 //     F4_in.index_put_({m, n, o, 0}, data_out[a][b][l]);
+=======
+  torch::Tensor F4_in = torch::zeros({ngridzones,4,2,3});
+  F4_in.index_put_({0, 0, 0, 0}, data_out[0][0][0]);
+  F4_in.index_put_({0, 0, 1, 0}, data_out[0][2][0]);
+  F4_in.index_put_({0, 1, 0, 0}, data_out[0][0][2]);
+  F4_in.index_put_({0, 1, 1, 0}, data_out[0][2][2]);
+  F4_in.index_put_({0, 2, 0, 0}, data_out[0][1][0]);
+  F4_in.index_put_({0, 2, 1, 0}, data_out[1][0][0]);
+  F4_in.index_put_({0, 3, 0, 0}, data_out[0][1][2]);
+  F4_in.index_put_({0, 3, 1, 0}, data_out[1][0][2]);
+  
+  F4_in.index_put_({1, 0, 0, 0}, data_out[0][0][1]);
+  F4_in.index_put_({1, 0, 1, 0}, data_out[0][2][1]);
+  F4_in.index_put_({1, 1, 0, 0}, data_out[0][0][3]);
+  F4_in.index_put_({1, 1, 1, 0}, data_out[0][2][3]);
+  F4_in.index_put_({1, 2, 0, 0}, data_out[0][1][1]);
+  F4_in.index_put_({1, 2, 1, 0}, data_out[1][0][1]);
+  F4_in.index_put_({1, 3, 0, 0}, data_out[0][1][3]);
+  F4_in.index_put_({1, 3, 1, 0}, data_out[1][0][3]);
+  
+  F4_in.index_put_({0, 0, 0, 1}, data_out[1][1][0]);
+  F4_in.index_put_({0, 0, 1, 1}, data_out[1][1][0]);
+  F4_in.index_put_({0, 0, 0, 2}, data_out[1][1][0]);
+  F4_in.index_put_({0, 0, 1, 2}, data_out[1][1][0]);
+  
+  F4_in.index_put_({0, 1, 0, 1}, data_out[1][1][2]);
+  F4_in.index_put_({0, 1, 1, 1}, data_out[1][1][2]);
+  F4_in.index_put_({0, 1, 0, 2}, data_out[1][1][2]);
+  F4_in.index_put_({0, 1, 1, 2}, data_out[1][1][2]);
+  
+  F4_in.index_put_({0, 2, 0, 1}, data_out[1][2][0]);
+  F4_in.index_put_({0, 2, 1, 1}, data_out[1][2][0]);
+  F4_in.index_put_({0, 2, 0, 2}, data_out[1][2][0]);
+  F4_in.index_put_({0, 2, 1, 2}, data_out[1][2][0]);
+  
+  F4_in.index_put_({0, 3, 0, 1}, data_out[1][2][2]);
+  F4_in.index_put_({0, 3, 1, 1}, data_out[1][2][2]);
+  F4_in.index_put_({0, 3, 0, 2}, data_out[1][2][2]);
+  F4_in.index_put_({0, 3, 1, 2}, data_out[1][2][2]);
+  
+  F4_in.index_put_({1, 0, 0, 1}, data_out[1][1][1]);
+  F4_in.index_put_({1, 0, 1, 1}, data_out[1][1][1]);
+  F4_in.index_put_({1, 0, 0, 2}, data_out[1][1][1]);
+  F4_in.index_put_({1, 0, 1, 2}, data_out[1][1][1]);
+  
+  F4_in.index_put_({1, 1, 0, 1}, data_out[1][1][3]);
+  F4_in.index_put_({1, 1, 1, 1}, data_out[1][1][3]);
+  F4_in.index_put_({1, 1, 0, 2}, data_out[1][1][3]);
+  F4_in.index_put_({1, 1, 1, 2}, data_out[1][1][3]);
+  
+  F4_in.index_put_({1, 2, 0, 1}, data_out[1][2][1]);
+  F4_in.index_put_({1, 2, 1, 1}, data_out[1][2][1]);
+  F4_in.index_put_({1, 2, 0, 2}, data_out[1][2][1]);
+  F4_in.index_put_({1, 2, 1, 2}, data_out[1][2][1]);
+
+  F4_in.index_put_({1, 3, 0, 1}, data_out[1][2][3]);
+  F4_in.index_put_({1, 3, 1, 1}, data_out[1][2][3]);
+  F4_in.index_put_({1, 3, 0, 2}, data_out[1][2][3]);
+  F4_in.index_put_({1, 3, 1, 2}, data_out[1][2][3]);
+  int a, b, l;
+  a = 0; b = 0;
+  cout << "i j k l a l b" << endl;
+  for (i = 0; i < 2; i++)
+  {
+   for (j = 0; j < 4; j++)
+   {
+    for (l = 0; l < 3; l ++)
+    {
+     for (k = 0; k < 2; k++)
+     {
+      if (i == 1) {
+      a = 1;
+      } 
+      cout << i << j << k << l << a << l << b << endl;
+      //F4_in.index_put_({i, j, k, l}, data_out[a][l][b]);
+      b = b+2;
+      if (b > 3) {
+       break;
+      }
+     }
+    }
+   }
+  }
+  
+  cout << "input" <<F4_in << endl;
+  cout << endl;
+>>>>>>> 455c729c3a0f4db54aa5acdcd0bd3eae659577a7
   
  // torch::Tensor u = torch::zeros({ngridzones,4});
  // u.index_put_({Slice(),3}, 1.0);
