@@ -7,10 +7,13 @@
 
 using namespace H5;
 using namespace std;
+const H5std_string INFILE_NAME("model_rl0_orthonormal.h5"); // input file
 
-const H5std_string FILE_NAME("model_rl0_orthonormal.h5"); // input file
+const int xgrid = 201;
+const int ygrid = 201;
+const int zgrid = 101;
 
-const int ngridzones = 20;
+const int ngridzones = 120;
 //======//
 // main //
 //======//
@@ -28,30 +31,28 @@ int main(int argc, const char* argv[]){
   
   int i, j, k, l;
   
-  float fne_out[3][ngridzones][1][1];
-  float fna_out[3][ngridzones][1][1];
-  float fnx_out[3][ngridzones][1][1];
-  float ne_out[1][ngridzones][1];
-  float na_out[1][ngridzones][1];
-  float nx_out[1][ngridzones][1];
+  double fne_in[3][ngridzones][1][1];
+  double fna_in[3][ngridzones][1][1];
+  double fnx_in[3][ngridzones][1][1];
+  double ne_in[1][ngridzones][1];
+  double na_in[1][ngridzones][1];
+  double nx_in[1][ngridzones][1];
   
-
-
   for (i = 0; i < ngridzones; i++)
   { 
-   ne_out[0][i][0] = 0.0;
-   na_out[0][i][0] = 0.0;
-   nx_out[0][i][0] = 0.0;
+   ne_in[0][i][0] = 0.0;
+   na_in[0][i][0] = 0.0;
+   nx_in[0][i][0] = 0.0;
    for (j = 0; j < 3; j++)
    {
-    fne_out[j][i][0][0] = 0.0;
-    fna_out[j][i][0][0] = 0.0;
-    fnx_out[j][i][0][0] = 0.0;
+    fne_in[j][i][0][0] = 0.0;
+    fna_in[j][i][0][0] = 0.0;
+    fnx_in[j][i][0][0] = 0.0;
    }
   }
   //------------------simulation data-------------------//
    
-  H5File file (FILE_NAME, H5F_ACC_RDONLY); 
+  H5File file (INFILE_NAME, H5F_ACC_RDONLY); 
   const char* datasets_fn[3] = {"/fn_e(1|ccm)", "/fn_a(1|ccm)", "/fn_x(1|ccm)"};
   const char* datasets_n[3] = {"/n_e(1|ccm)", "/n_a(1|ccm)", "/n_x(1|ccm)"};
    
@@ -95,21 +96,21 @@ int main(int argc, const char* argv[]){
    dataspace1.selectHyperslab(H5S_SELECT_SET, count, offset);
    DataSpace memspace1(4, dimsm);
    memspace1.selectHyperslab(H5S_SELECT_SET, count_out, offset_out);
-   d1.read(fne_out, PredType::NATIVE_FLOAT, memspace1, dataspace1);
+   d1.read(fne_in, PredType::NATIVE_DOUBLE, memspace1, dataspace1);
 
    DataSet d2 = file.openDataSet(datasets_fn[1]);
    DataSpace dataspace2 = d2.getSpace();
    dataspace2.selectHyperslab(H5S_SELECT_SET, count, offset);
    DataSpace memspace2(4, dimsm);
    memspace2.selectHyperslab(H5S_SELECT_SET, count_out, offset_out);
-   d2.read(fna_out, PredType::NATIVE_FLOAT, memspace2, dataspace2);
+   d2.read(fna_in, PredType::NATIVE_DOUBLE, memspace2, dataspace2);
    
    DataSet d3 = file.openDataSet(datasets_fn[2]);
    DataSpace dataspace3 = d3.getSpace();
    dataspace3.selectHyperslab(H5S_SELECT_SET, count, offset);
    DataSpace memspace3(4, dimsm);
    memspace3.selectHyperslab(H5S_SELECT_SET, count_out, offset_out);
-   d3.read(fnx_out, PredType::NATIVE_FLOAT, memspace3, dataspace3);
+   d3.read(fnx_in, PredType::NATIVE_DOUBLE, memspace3, dataspace3);
 
    hsize_t offsett[3]; // hyperslab offset in the file
    hsize_t countt[3];  // size of the hyperslab in the file
@@ -134,31 +135,21 @@ int main(int argc, const char* argv[]){
    dataspace4.selectHyperslab(H5S_SELECT_SET, countt, offsett);
    DataSpace memspace4(3, dimsmt);
    memspace4.selectHyperslab(H5S_SELECT_SET, count_outt, offset_outt);
-   d4.read(ne_out, PredType::NATIVE_FLOAT, memspace4, dataspace4);
+   d4.read(ne_in, PredType::NATIVE_DOUBLE, memspace4, dataspace4);
    
    DataSet d5 = file.openDataSet(datasets_n[1]);
    DataSpace dataspace5 = d5.getSpace();
    dataspace5.selectHyperslab(H5S_SELECT_SET, countt, offsett);
    DataSpace memspace5(3, dimsmt);
    memspace5.selectHyperslab(H5S_SELECT_SET, count_outt, offset_outt);
-   d5.read(na_out, PredType::NATIVE_FLOAT, memspace5, dataspace5);
+   d5.read(na_in, PredType::NATIVE_DOUBLE, memspace5, dataspace5);
 
    DataSet d6 = file.openDataSet(datasets_n[2]);
    DataSpace dataspace6 = d6.getSpace();
    dataspace6.selectHyperslab(H5S_SELECT_SET, countt, offsett);
    DataSpace memspace6(3, dimsmt);
    memspace6.selectHyperslab(H5S_SELECT_SET, count_outt, offset_outt);
-   d6.read(nx_out, PredType::NATIVE_FLOAT, memspace6, dataspace6);
-   
-  // for (l = 0; l < 3; l++)
-   //{
-    //cout << fne_out[l][k][0][0] << endl; 
-    //cout << fna_out[l][k][0][0] << endl; 
-    //cout << fnx_out[l][k][0][0] << endl; 
-   //}
-   //cout << ne_out[0][k][0] << endl; 
-   //cout << na_out[0][k][0] << endl; 
-   //cout << nx_out[0][k][0] << endl; 
+   d6.read(nx_in, PredType::NATIVE_DOUBLE, memspace6, dataspace6);
   }
   //==================================================//
   // Create a sample tensor to pass through the model //
@@ -170,11 +161,11 @@ int main(int argc, const char* argv[]){
   {
    for (l = 0; l < 3; l++)
    {
-    F4_in.index_put_({k, l, 0, 0}, fne_out[l][k][0][0]);
-    F4_in.index_put_({k, l, 1, 0}, fna_out[l][k][0][0]);
+    F4_in.index_put_({k, l, 0, 0}, fne_in[l][k][0][0]);
+    F4_in.index_put_({k, l, 1, 0}, fna_in[l][k][0][0]);
    }
-   F4_in.index_put_({k, 3, 0, 0}, ne_out[0][k][0]);
-   F4_in.index_put_({k, 3, 1, 0}, na_out[0][k][0]);
+   F4_in.index_put_({k, 3, 0, 0}, ne_in[0][k][0]);
+   F4_in.index_put_({k, 3, 1, 0}, na_in[0][k][0]);
   }
   
   for (k = 0; k < ngridzones; k++)
@@ -185,9 +176,9 @@ int main(int argc, const char* argv[]){
     {
      for (l = 0; l < 3; l++)
      {
-      F4_in.index_put_({k, l, i, j}, fnx_out[l][k][0][0]);
+      F4_in.index_put_({k, l, i, j}, fnx_in[l][k][0][0]);
      }
-     F4_in.index_put_({k, 3, i, j}, nx_out[0][k][0]);
+     F4_in.index_put_({k, 3, i, j}, nx_in[0][k][0]);
     }
    }
   }
@@ -210,5 +201,42 @@ int main(int argc, const char* argv[]){
   cout << "output" << output << endl;
  // assert(torch::allclose(output, F4_expected, 1e-2, 1e-2));
  
-  return 0;
+ ofstream f;
+ f.open("output.txt");
+ f << " ngridzones ";
+ f << "nuex nuey nuez nuet nuebarx nuebary nuebarz nuebart ";
+ f << "numux numuy numuz numut numubarx numubary numubarz numubart ";
+ f << "nutaux nutauy nutauz nutaut nutaubarx nutaubary nutaubarz nutaubart ";
+ f << endl; 
+ for (i = 0; i < ngridzones; i ++)
+ {
+  f << i << " ";
+  for (j = 0; j < 4; j++)
+  {
+   f << output[i][j][0][0].item() << " "; 
+  }
+  for (j = 0; j < 4; j++)
+  {
+   f << output[i][j][1][0].item() << " "; 
+  }
+  for (j = 0; j < 4; j++)
+  { 
+   f << output[i][j][0][1].item() << " "; 
+  }
+  for (j = 0; j < 4; j++)
+  { 
+   f << output[i][j][1][1].item() << " "; 
+  }
+  for (j = 0; j < 4; j++)
+  { 
+   f << output[i][j][0][2].item() << " "; 
+  }
+  for (j = 0; j < 4; j++)
+  { 
+   f << output[i][j][1][2].item() << " "; 
+  }
+ f << endl;
+ }
+ f.close();
+ return 0;
 }
