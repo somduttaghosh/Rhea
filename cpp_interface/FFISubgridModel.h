@@ -61,7 +61,6 @@ class FFISubgridModel{
   // 20: Ftaubar.Ftaubar
   torch::Tensor X_from_F4_Minkowski(const torch::Tensor F4){
     int nsims = F4.size(0);
-//<<<<<<< HEAD
 
     // calculate the total number density based on the t component of the four-vector
     // [sim]
@@ -70,7 +69,6 @@ class FFISubgridModel{
     // normalize F4 by the total number density
     // [sim, xyzt, 2*NF]
     torch::Tensor F4_normalized = F4.reshape({nsims,4,2*NF}) / ndens_total.reshape({nsims,1,1});
-//=======
     // copy the input tensor so the values don't change
    // torch::Tensor F4_flat = F4.detach().clone().reshape({nsims, 4, 2*NF}); // [# grid cells, xyzt, species]
     // calculate the total number density
@@ -82,7 +80,6 @@ class FFISubgridModel{
 
     // normalize F4_flat by the total number density
     //F4_flat /= ndens_total.reshape({nsims,1,1});
-//>>>>>>> workingversion
 
     // create the X tensor
    torch::Tensor X = torch::zeros({nsims, NX}, torch::dtype(torch::kFloat32));
@@ -105,13 +102,8 @@ class FFISubgridModel{
   //===================================//
   FFISubgridModel(std::string filename){
     // Deserialize the ScriptModule from a file using torch::jit::load().
-//<<<<<<< HEAD
     model = torch::jit::load(filename.c_str());
 
-//=======
- //   model = torch::jit::load(filename.c_str(), device);
-    
-//>>>>>>> workingversion
     // set the model to evaluation mode
     model.eval();
   }
