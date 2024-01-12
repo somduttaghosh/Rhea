@@ -10,9 +10,9 @@ using namespace H5;
 using namespace std;
 const H5std_string INFILE_NAME("model_rl0_orthonormal.h5"); // input file
 
-const int xgrid = 1;
-const int ygrid = 1;
-const int zgrid = 1;
+const int xgrid = 201;
+const int ygrid = 201;
+const int zgrid = 101;
 
 const int ngridzones = xgrid*ygrid*zgrid;
 //======//
@@ -31,7 +31,8 @@ int main(int argc, const char* argv[]){
   */
   
   int i, j, k, l;
-  
+  int xloc, yloc, zloc;  
+
   double fne_in[3][xgrid][ygrid][zgrid];
   double fna_in[3][xgrid][ygrid][zgrid];
   double fnx_in[3][xgrid][ygrid][zgrid];
@@ -86,9 +87,9 @@ int main(int argc, const char* argv[]){
    hsize_t offset[4]; //hyperslab offset in the file
    hsize_t count[4]; //size of the hyperslab in the file;
    offset[0] = 0;
-   offset[1] = 136;
-   offset[2] = 100;
-   offset[3] = 80;
+   offset[1] = 0;
+   offset[2] = 0;
+   offset[3] = 0;
    count[0] = 3; //3 --> x,y,z given by the first index of the dataset
    count[1] = xgrid; 
    count[2] = ygrid;
@@ -130,9 +131,9 @@ int main(int argc, const char* argv[]){
 
    hsize_t offsett[3]; // hyperslab offset in the file
    hsize_t countt[3];  // size of the hyperslab in the file
-   offsett[0] = 136; 
-   offsett[1] = 100; 
-   offsett[2] = 80; 
+   offsett[0] = 0; 
+   offsett[1] = 0; 
+   offsett[2] = 0; 
    countt[0] = xgrid;
    countt[1] = ygrid;
    countt[2] = zgrid;
@@ -222,124 +223,23 @@ int main(int argc, const char* argv[]){
   } } }
   cout << endl;
   cout << "input" << F4_in << endl;
-//<<<<<<< HEAD
-  //F4_in.index_put_({Slice(), 3, 0, 0},  1.0  );
-  //F4_in.index_put_({Slice(), 3, 1, 0},  1.0  );
-  //F4_in.index_put_({Slice(), 2, 0, 0},  1./3.);
-  //F4_in.index_put_({Slice(), 2, 1, 0}, -1./3.);
-  //std::cout << std::endl;
-  //std::cout << "F4_in" << std::endl;
-  //std::cout << F4_in.index({Slice(),3,Slice(),Slice()}) << std::endl;
-
+ 
+  torch::Tensor u = torch::zeros({ngridzones,4});
+  u.index_put_({Slice(),3}, 1.0);
+  
   // put the input through the model 10 times
-  auto F4_out = F4_in;
-  torch::Tensor X, y;
-  //for(int i=0; i<10; i++){
-    X = model.X_from_F4_Minkowski(F4_out);
-    y = model.predict_y(X);
-    F4_out = model.F4_from_y(F4_out, y);
-  //}
-
+  auto output = F4_in;
+  for(i=0; i<10; i++) output = model.predict_F4_Minkowski(output, u);
+  
   // the expected result is an even mixture of all flavors
   torch::Tensor F4_expected = torch::zeros({ngridzones,4,2,3});
-  F4_expected.index_put_({Slice(), 3, Slice(), Slice()}, 1./3.);
-
-  // check that the results are correct
-  // by asserting that all elements are equal to 1 with an absolute and relative tolerance of 1e-2
-  std::cout << std::endl;
-  std::cout << "F4_out" << std::endl;
-  std::cout << F4_out.index({Slice(),3,Slice(),Slice()}) << std::endl;
-  std::cout << std::endl;
-  std::cout << "y" << std::endl;
-  std::cout << y.index({Slice(), 0,0,Slice(),Slice()}) << std::endl;
-  std::cout << std::endl << "==========================" << std::endl;
-  //assert(torch::allclose(F4_out, F4_expected, 3e-2, 3e-2));
-  
-  //====================================//
-  // Test the two-flavor transformation //
-  //====================================//
-  torch::Tensor F4_in_2F = torch::zeros({ngridzones,4,2,2});
-  F4_in_2F.index_put_({Slice(), 3, 0, 0}, 1.0);
-  F4_in_2F.index_put_({Slice(), 3, 1, 0}, 1.0);
-  std::cout << std::endl;
-  std::cout << "F4_in_2F" << std::endl;
-  std::cout << F4_in_2F.index({Slice(),3,Slice(),Slice()}) << std::endl;
-
-  // the expected result is an even mixture of all flavors
-  torch::Tensor F4_expected_2F = torch::zeros({ngridzones,4,2,2});
-  F4_expected_2F.index_put_({Slice(), 3, Slice(), 0}, 1./3.);
-  F4_expected_2F.index_put_({Slice(), 3, Slice(), 1}, 2./3.);
-
-  torch::Tensor y2F = model.convert_y_to_2F(y);
-  torch::Tensor F4_out_2F = model.F4_from_y(F4_in_2F, y2F);
-
-  // check that the results are correct
-  // by asserting that all elements are equal to 1 with an absolute and relative tolerance of 1e-2
-  std::cout << std::endl;
-  std::cout << "F4_out_2F" << std::endl;
-  std::cout << F4_out_2F.index({Slice(),3,Slice(),Slice()}) << std::endl;
-  std::cout << std::endl;
-  std::cout << "y2F" << std::endl;
-  std::cout << y2F.index({Slice(), 0,0,Slice(),Slice()}) << std::endl;
-  //assert(torch::allclose(F4_out_2F, F4_expected_2F, 3e-2, 3e-2));
-  
-
-//  return 0;
-//=======
- 
- // torch::Tensor u = torch::zeros({ngridzones,4});
-  //u.index_put_({Slice(),3}, 1.0);
-  
-  // put the input through the model 10 times
-  //auto output = F4_in;
-  //for(i=0; i<10; i++){ 
-  //output = model.predict_F4_Minkowski(output, u);
-  //cout << output << endl;
-  //}
-  
-  // the expected result is an even mixture of all flavors
-  //torch::Tensor F4_expected = torch::zeros({ngridzones,4,2,3});
-  //for (j = 0; j < xgrid; j++)
-  //{
-  //for (l = 0; l < ygrid; l++)
-  //{
-  //for (k = 0; k < zgrid; k++)
-  //{
-  //F4_expected.index_put_({0, 0, 0, 0}, fne_in[0][j][l][k]/3.0);
-  //F4_expected.index_put_({0, 0, 1, 0}, fna_in[0][j][l][k]/3.0);
-  //F4_expected.index_put_({0, 0, 0, 1}, fnx_in[0][j][l][k]/12.0);
-  //F4_expected.index_put_({0, 0, 1, 1}, fnx_in[0][j][l][k]/12.0);
-  //F4_expected.index_put_({0, 0, 0, 2}, fnx_in[0][j][l][k]/12.0);
-  //F4_expected.index_put_({0, 0, 1, 2}, fnx_in[0][j][l][k]/12.0);
-  //F4_expected.index_put_({0, 1, 0, 0}, fne_in[1][j][l][k]/3.0);
-  //F4_expected.index_put_({0, 1, 1, 0}, fna_in[1][j][l][k]/3.0);
-  //F4_expected.index_put_({0, 1, 0, 1}, fnx_in[1][j][l][k]/12.0);
-  //F4_expected.index_put_({0, 1, 1, 1}, fnx_in[1][j][l][k]/12.0);
-  //F4_expected.index_put_({0, 1, 0, 2}, fnx_in[1][j][l][k]/12.0);
-  //F4_expected.index_put_({0, 1, 1, 2}, fnx_in[1][j][l][k]/12.0); 
-  //F4_expected.index_put_({0, 2, 0, 0}, fne_in[2][j][l][k]/3.0);
-  //F4_expected.index_put_({0, 2, 1, 0}, fna_in[2][j][l][k]/3.0);
-  //F4_expected.index_put_({0, 2, 0, 1}, fnx_in[2][j][l][k]/12.0);
-  //F4_expected.index_put_({0, 2, 1, 1}, fnx_in[2][j][l][k]/12.0);
-  //F4_expected.index_put_({0, 2, 0, 2}, fnx_in[2][j][l][k]/12.0);
-  //F4_expected.index_put_({0, 2, 1, 2}, fnx_in[2][j][l][k]/12.0);
-  //F4_expected.index_put_({0, 3, 0, 0}, ne_in[j][k][l]/3.0);
-  //F4_expected.index_put_({0, 3, 1, 0}, na_in[j][k][l]/3.0);
-  //F4_expected.index_put_({0, 3, 0, 1}, nx_in[j][k][l]/12.0);
-  //F4_expected.index_put_({0, 3, 1, 1}, nx_in[j][k][l]/12.0);
-  //F4_expected.index_put_({0, 3, 0, 2}, nx_in[j][k][l]/12.0);
-  //F4_expected.index_put_({0, 3, 1, 2}, nx_in[j][k][l]/12.0);
-  //}
-  //}
-  //}
-  //cout << "F4_expected" << F4_expected <<endl;
+  F4_expected.index_put_({Slice(), 3, Slice(), Slice()}, 1.0);
 
  //check that the results are correct by asserting that all 
  //elements are equal to 1 with an absolute and relative tolerance of 1e-2
- // cout << "output" << output << endl;
- //assert(torch::allclose(output, F4_expected, 1e-4, 1e-4));
+  cout << "output" << output << endl;
+ // assert(torch::allclose(output, F4_expected, 1e-2, 1e-2));
  
- //torch::save({F4_in, output}, "tensor.pt");
+ torch::save({F4_in, output}, "tensor.pt");
  return 0;
-//>>>>>>> workingversion
 }
