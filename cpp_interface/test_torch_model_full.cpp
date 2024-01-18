@@ -8,10 +8,11 @@
 
 using namespace H5;
 using namespace std;
+using namespace std::chrono;
 const H5std_string INFILE_NAME("model_rl0_orthonormal.h5"); // input file
 
 const int xgrid = 201;
-const int ygrid = 201;
+const int ygrid = 10;
 const int zgrid = 101;
 
 const int ngridzones = xgrid*ygrid*zgrid;
@@ -23,7 +24,7 @@ int main(int argc, const char* argv[]){
     cerr << "usage: example-app <path-to-exported-script-module>\n";
     return -1;
   }
-  
+
   FFISubgridModel<3> model{string(argv[1])};
   
   /*
@@ -31,7 +32,6 @@ int main(int argc, const char* argv[]){
   */
   
   int i, j, k, l;
-  int xloc, yloc, zloc;  
 
   double fne_in[3][xgrid][ygrid][zgrid];
   double fna_in[3][xgrid][ygrid][zgrid];
@@ -39,6 +39,7 @@ int main(int argc, const char* argv[]){
   double ne_in[xgrid][ygrid][zgrid];
   double na_in[xgrid][ygrid][zgrid];
   double nx_in[xgrid][ygrid][zgrid];
+  double delta[xgrid][ygrid][zgrid];
   
   for (i = 0; i < 3; i++)
   { 
@@ -46,6 +47,10 @@ int main(int argc, const char* argv[]){
    {
    for (k = 0; k < ygrid; k++)
    {
+   ne_in[i][j][k] = 0.0;
+   na_in[i][j][k] = 0.0;
+   nx_in[i][j][k] = 0.0;
+   delta[i][j][k] = 0.0;
    for (l = 0; l < zgrid; l++)
    {
     fne_in[i][j][k][l] = 0.0;
@@ -55,7 +60,7 @@ int main(int argc, const char* argv[]){
    }
    }
   }
-  for (i = 0; i < xgrid; i++)
+/*  for (i = 0; i < xgrid; i++)
   {
   for (j = 0; j < ygrid; j++)
   {
@@ -66,7 +71,7 @@ int main(int argc, const char* argv[]){
    nx_in[i][j][k] = 0.0;
   }
   }
-  }
+  }*/
   //------------------simulation data-------------------//
    
   H5File file (INFILE_NAME, H5F_ACC_RDONLY); 
@@ -88,7 +93,7 @@ int main(int argc, const char* argv[]){
    hsize_t count[4]; //size of the hyperslab in the file;
    offset[0] = 0;
    offset[1] = 0;
-   offset[2] = 0;
+   offset[2] = 100;
    offset[3] = 0;
    count[0] = 3; //3 --> x,y,z given by the first index of the dataset
    count[1] = xgrid; 
@@ -132,7 +137,7 @@ int main(int argc, const char* argv[]){
    hsize_t offsett[3]; // hyperslab offset in the file
    hsize_t countt[3];  // size of the hyperslab in the file
    offsett[0] = 0; 
-   offsett[1] = 0; 
+   offsett[1] = 100; 
    offsett[2] = 0; 
    countt[0] = xgrid;
    countt[1] = ygrid;
@@ -167,15 +172,25 @@ int main(int argc, const char* argv[]){
    DataSpace memspace6(3, dimsmt);
    memspace6.selectHyperslab(H5S_SELECT_SET, count_outt, offset_outt);
    d6.read(nx_in, PredType::NATIVE_DOUBLE, memspace6, dataspace6);
+   
+   // Predicted instability regions
+   DataSet d7 = file.openDataSet("/crossing_discriminant");
+   DataSpace dataspace7 = d7.getSpace();
+   dataspace7.selectHyperslab(H5S_SELECT_SET, countt, offsett);
+   DataSpace memspace7(3, dimsmt);
+   memspace7.selectHyperslab(H5S_SELECT_SET, count_outt, offset_outt);
+   d7.read(delta, PredType::NATIVE_DOUBLE, memspace7, dataspace7);
+
  // }
-   for (i = 0; i < xgrid; i++)
+ 
+  /*for (i = 0; i < xgrid; i++)
    {
    for (j = 0; j < ygrid; j++)
    {
    for (k = 0; k < zgrid; k++)
    {
    cout << fne_in[0][i][j][k] << endl;
-   } } }
+   } } }*/
   //==================================================//
   // Create a sample tensor to pass through the model //
   //==================================================//
@@ -221,25 +236,50 @@ int main(int argc, const char* argv[]){
   
   i++;
   } } }
-  cout << endl;
-  cout << "input" << F4_in << endl;
+  //cout << endl;
+  //cout << "input" << F4_in << endl;
  
-  torch::Tensor u = torch::zeros({ngridzones,4});
-  u.index_put_({Slice(),3}, 1.0);
+  // put the input through the model maxi times
+  auto F4_out = F4_in;
+  torch::Tensor X, y;
   
-  // put the input through the model 10 times
-  auto output = F4_in;
-  for(i=0; i<10; i++) output = model.predict_F4_Minkowski(output, u);
+  int maxi(0);
+  cout << "Number of iterations (> 0)?" << endl;
+  cin >> maxi;
   
-  // the expected result is an even mixture of all flavors
-  torch::Tensor F4_expected = torch::zeros({ngridzones,4,2,3});
-  F4_expected.index_put_({Slice(), 3, Slice(), Slice()}, 1.0);
+  cout << "Start of ML calculation" << endl;
+  auto time_start = high_resolution_clock::now();
 
- //check that the results are correct by asserting that all 
- //elements are equal to 1 with an absolute and relative tolerance of 1e-2
-  cout << "output" << output << endl;
+  for(int it=0; it<maxi; it++){
+    X = model.X_from_F4_Minkowski(F4_out);
+    y = model.predict_y(X);
+    F4_out = model.F4_from_y(F4_out, y);
+    
+    // Remove changes when no instability expected
+    i = 0;
+    for (j = 0; j < xgrid; j++)
+    {
+    for (l = 0; l < ygrid; l++)
+    {
+    for (k = 0; k < zgrid; k++)
+    {
+    if(delta[j][l][k] <= 0.){
+        // If no crossing, no transformation
+        F4_out.index_put_({i, Slice(), Slice(), Slice()}, (F4_in.index({i, Slice(), Slice(), Slice()})));
+    }
+    i++;
+    } } }
+  }
+  
+  cout << "End of ML calculation" << endl;
+  auto time_end = high_resolution_clock::now();
+  auto duration = duration_cast<milliseconds>(time_end - time_start);
+  
+  cout << "Duration of ML calculation: " << duration.count() << " ms" << endl;
+  
+  cout << "output" << F4_out << endl;
  // assert(torch::allclose(output, F4_expected, 1e-2, 1e-2));
  
- torch::save({F4_in, output}, "tensor.pt");
+ //torch::save({F4_in, F4_out}, "tensor.pt");
  return 0;
 }
