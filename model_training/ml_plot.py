@@ -15,7 +15,7 @@ class PlotQuantities():
     # and fill in the values from that plotquantities object
     def fill_from_plotquantities(self, plotquantities):
         n_fill_values = len(plotquantities.train_loss)
-        assert(len(self.train_loss) > n_fill_values)
+        assert(len(self.train_loss) >= n_fill_values)
 
         self.train_loss[:n_fill_values] = plotquantities.train_loss
         self.train_err[ :n_fill_values] = plotquantities.train_err
@@ -35,19 +35,16 @@ class PlotQuantities():
     
 
 class Plotter():
-    def __init__(self, epochs):
-        self.knownData      = PlotQuantities(epochs)
-        self.knownData_FS   = PlotQuantities(epochs)
-        self.zerofluxfac    = PlotQuantities(epochs)
-        self.oneflavor      = PlotQuantities(epochs)
-        self.unphysical     = PlotQuantities(epochs)
-        self.NSM            = PlotQuantities(epochs)
+    def __init__(self, epochs, names):
+        self.data = {}
+        for name in names:
+            self.data[name] = PlotQuantities(epochs)
 
     # return the minimum and maximum values of all datasets
     def minmax(self):
         minval = 1e100
         maxval = 0
-        for p in [self.knownData, self.knownData_FS, self.zerofluxfac, self.oneflavor, self.unphysical, self.NSM]:
+        for p in self.data.values():
             minval_p, maxval_p = p.minmax()
             minval = min(minval, minval_p)
             maxval = max(maxval, maxval_p)
@@ -56,12 +53,8 @@ class Plotter():
     # second initializer that will create all of the same quantities, but will also accept a plotter object as an argument
     # and fill in the values from that plotter object
     def fill_from_plotter(self, plotter):
-        self.knownData.fill_from_plotquantities(plotter.knownData)
-        self.knownData_FS.fill_from_plotquantities(plotter.knownData_FS)
-        self.zerofluxfac.fill_from_plotquantities(plotter.zerofluxfac)
-        self.oneflavor.fill_from_plotquantities(plotter.oneflavor)
-        self.unphysical.fill_from_plotquantities(plotter.unphysical)
-        self.NSM.fill_from_plotquantities(plotter.NSM)
+        for name in self.data.keys():
+            self.data[name].fill_from_plotquantities(plotter.data[name])
 
     def init_plot_options(self):
         #==============#
@@ -88,27 +81,25 @@ class Plotter():
         ax.semilogy(x, p.train_err, label="train_maxerr", color="blue", linewidth=0.5)
         ax.semilogy(x, p.test_err,  label="test_maxerr",  color="black", linewidth=0.5)
 
-    def plot_error(self, ymin=0, ymax=0):
+    def plot_error(self, filename, ymin=0, ymax=0):
         plt.clf()
-        fig,axes=plt.subplots(2,3, sharey=True, sharex=True)
+        nplots = len(self.data)
+        fig,axes=plt.subplots(1,nplots, sharey=True, sharex=True)
         plt.subplots_adjust(wspace=0, hspace=0)
         for ax in axes.flatten():
             ax.tick_params(axis='both',which="both", direction="in",top=True,right=True)
             ax.minorticks_on()
 
-        epochs = len(self.knownData.train_err)
+        samplekey = list(self.data.keys())[0]
+        epochs = len(self.data[samplekey].train_err)
         x = range(epochs)
         
-        self.plot_error_single_frame(axes[0,0], x, self.knownData,     "known data"         )
-        self.plot_error_single_frame(axes[0,1], x, self.NSM,           "NSM stable"         )
-        self.plot_error_single_frame(axes[0,2], x, self.unphysical,    "unphysical"         )
-        self.plot_error_single_frame(axes[1,0], x, self.knownData_FS,  "final stable"       )
-        self.plot_error_single_frame(axes[1,1], x, self.zerofluxfac,   "zero fluxfac stable")
-        self.plot_error_single_frame(axes[1,2], x, self.oneflavor,     "one flavor stable"  )
-        axes[0,0].legend(frameon=False,fontsize=8)
+        for i,name in enumerate(self.data.keys()):
+            self.plot_error_single_frame(axes[i], x, self.data[name], name)
+        axes[0].legend(frameon=False,fontsize=8)
 
-        axes[1,0].set_xlabel("Epoch")
-        axes[1,0].set_ylabel("Error")
+        axes[0].set_xlabel("Epoch")
+        axes[0].set_ylabel("Error")
         plt.xlim(0,epochs)
 
         minval, maxval = self.minmax()
@@ -120,42 +111,86 @@ class Plotter():
         for ax in axes.flatten():
             ax.set_ylim(ymin,ymax)
         
-        plt.savefig("train_test_error.pdf",bbox_inches="tight")
+        plt.savefig(filename,bbox_inches="tight")
 
-    def plot_nue_nuebar(self, model, npoints, nreps,):
-        # plot the number of electron neutrinos when varying the number of antineutrinos
-        nee_list_fid    = np.zeros((npoints,nreps))
-        neebar_list_fid = np.zeros((npoints,nreps))
-        nee_list_23     = np.zeros((npoints,nreps))
-        neebar_list_23  = np.zeros((npoints,nreps))
-        ratio_list = np.array(range(npoints)) / (npoints-1)
-        for i in range(npoints):
-            F4_test = np.zeros((4,2,model.NF)) # [xyzt, nu/nubar, flavor]
-            F4_test[3, 0, 0] =  1
-            F4_test[3, 1, 0] =  ratio_list[i]
-            F4_test[2, 0, 0] =  1/3
-            F4_test[2, 1, 0] = -1/3 * ratio_list[i]
-            F4_pred = torch.tensor(F4_test[None,:,:,:]).float()
-            for j in range(nreps):
-                F4_pred = model.to('cpu').predict_F4(F4_pred.to('cpu'))
-                nee_list_fid[i,j]    = F4_pred[0,3,0,0]
-                neebar_list_fid[i,j] = F4_pred[0,3,1,0]
-                
-        plt.clf()
-        fig,ax=plt.subplots(1,1)
-        ax.tick_params(axis='both',which="both", direction="in",top=True,right=True)
-        ax.minorticks_on()
-
+def plot_nue_nuebar(model, npoints, nreps, conserve_lepton_number, restrict_to_physical):
+    # plot the number of electron neutrinos when varying the number of antineutrinos
+    nee_list_fid    = np.zeros((npoints,nreps))
+    neebar_list_fid = np.zeros((npoints,nreps))
+    nee_list_23     = np.zeros((npoints,nreps))
+    neebar_list_23  = np.zeros((npoints,nreps))
+    ratio_list = np.array(range(npoints)) / (npoints-1)
+    for i in range(npoints):
+        F4_test = np.zeros((4,2,model.NF)) # [xyzt, nu/nubar, flavor]
+        F4_test[3, 0, 0] =  1
+        F4_test[3, 1, 0] =  ratio_list[i]
+        F4_test[2, 0, 0] =  1/3
+        F4_test[2, 1, 0] = -1/3 * ratio_list[i]
+        F4_pred = torch.tensor(F4_test[None,:,:,:]).float().to(next(model.parameters()).device)
         for j in range(nreps):
-            plt.plot(ratio_list, nee_list_fid[:,j], linewidth=2, color=mpl.cm.jet(j/(nreps-1)) )#, label="$N_{\\nu_e}$")
+            F4_pred = model.predict_F4(F4_pred, conserve_lepton_number, restrict_to_physical)
+            nee_list_fid[i,j]    = F4_pred[0,3,0,0].to('cpu')
+            neebar_list_fid[i,j] = F4_pred[0,3,1,0].to('cpu')
+            
+    plt.clf()
+    fig,ax=plt.subplots(1,1)
+    ax.tick_params(axis='both',which="both", direction="in",top=True,right=True)
+    ax.minorticks_on()
+    for j in range(nreps):
+        plt.plot(ratio_list, nee_list_fid[:,j], linewidth=2, color=mpl.cm.jet(j/(nreps-1)) )#, label="$N_{\\nu_e}$")
+    plt.legend(frameon=False)
+    plt.xlabel("$N_{\\bar{\\nu}_e} / N_{\\nu_e}$")
+    plt.ylabel("$N_{\\nu_e}$")
+    plt.ylim(0.3,1)
+    plt.xlim(0,1)
+    plt.axhline(1./3., color="green", linewidth=0.5)
+    plt.savefig("nue_vs_nuebar.pdf",bbox_inches="tight")
 
-        plt.legend(frameon=False)
-        plt.xlabel("$N_{\\bar{\\nu}_e} / N_{\\nu_e}$")
-        plt.ylabel("$N_{\\nu_e}$")
-        plt.ylim(0.3,1)
-        plt.xlim(0,1)
-        plt.axhline(1./3., color="green", linewidth=0.5)
-        plt.savefig("nue_vs_nuebar.pdf",bbox_inches="tight")
+
+def modify_F4(F4i, F4f,d, model_stability, stability_cutoff):
+    if d=="masked" or d=="both":
+        unstable = model_stability.predict_unstable(F4i)[:,:,None,None]
+        unstable[torch.where(unstable<stability_cutoff)] = 0
+        unstable[torch.where(unstable>=stability_cutoff)] = 1
+        stable = torch.ones_like(unstable)-unstable
+        print("Stable:",torch.sum(stable).item())
+        print("Unstable:",torch.sum(unstable).item())
+        F4f = unstable*F4f + stable*F4i
+
+    return F4f
+
+def plot_histogram(error, bins, xmin, xmax, filename):
+    error[np.where(error>xmax)] = xmax
+    # plot the histogram
+    plt.clf()
+    plt.hist(error, bins=bins, range=(xmin,xmax), log=True)
+    plt.xlabel("Max Component Error")
+    plt.ylabel("Count")
+    plt.xlim(xmin,xmax)
+    plt.tick_params(axis='both',which="both", direction="in",top=True,right=True)
+    plt.minorticks_on()
+    plt.savefig(filename,bbox_inches="tight")
+
+# apply the model to a dataset and create a histogram of the magnitudes of the error
+# F4 has dimensions [sim, xyzt, nu/nubar, flavor]
+def error_histogram(model, F4_initial, F4_final, bins, xmin, xmax, d, filename, conserve_lepton_number, restrict_to_physical, model_stability, stability_cutoff):
+    # get the predicted final F4
+    F4_pred = model.predict_F4(F4_initial, conserve_lepton_number, restrict_to_physical)
+
+    # apply any relevant corrections to the distribution
+    F4_pred = modify_F4(F4_initial, F4_pred, d, model_stability, stability_cutoff)
+
+    # calculate the error
+    F4_error = (F4_final - F4_pred).to('cpu').detach().numpy()
+
+    # calculate the magnitude of the error
+    F4_error_mag = np.max(np.abs(F4_error), axis=(1,2,3))
+
+    # calculate the total number density in each simulation
+    N = F4_final[:,3,:,:].to('cpu').detach().numpy()
+    N = np.sum(N, axis=(1,2))
+
+    plot_histogram(F4_error_mag/N, bins, xmin, xmax, d+filename)
 
         
 # visualize the network using torchviz

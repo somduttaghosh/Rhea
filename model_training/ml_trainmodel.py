@@ -3,33 +3,36 @@ from ml_loss import *
 from ml_neuralnet import *
 from ml_optimizer import *
 from ml_plot import *
+from ml_maxentropy import *
 
-def train_model(model,
+def train_asymptotic_model(model,
                 optimizer,
+                scheduler,
                 plotter,
                 NF,
                 epochs,
                 batch_size,
                 n_generate,
+                generate_max_fluxfac,
                 dataset_size,
                 print_every,
                 device,
-                do_augment_final_stable,
-                do_NSM_stable,
                 do_unphysical_check,
-                do_trivial_stable,
+                do_augment_final_stable,
+                do_augment_1f,
+                do_augment_0ff,
+                conserve_lepton_number,
+                bound_to_physical,
                 comparison_loss_fn,
                 unphysical_loss_fn,
                 F4i_train,
                 F4f_train,
                 F4i_test,
-                F4f_test,
-                F4_NSM_train,
-                F4_NSM_test):
+                F4f_test):
     print("Training dataset size:",dataset_size)
 
     # create a new plotter object of larger size if epochs is larger than the plotter object
-    p = Plotter(epochs)
+    p = Plotter(epochs,["knownData","unphysical","0ff","1f","finalstable"])
     p.fill_from_plotter(plotter)
 
     #=====================================================#
@@ -40,86 +43,181 @@ def train_model(model,
     if batch_size == -1:
         batch_size = dataset_size
     assert(dataset_size <= F4i_train.shape[0])
-    assert(batch_size <= dataset_size)
     F4i_train = F4i_train[:dataset_size]
     F4f_train = F4f_train[:dataset_size]
     dataset = torch.utils.data.TensorDataset(F4i_train, F4f_train)
-    batch_size = max(batch_size, len(dataset))
+    batch_size = min(batch_size, len(dataset))
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
     print("batchsize=",batch_size)
 
     #===============#
     # training loop #
     #===============#
-    epochs_already_done = len(plotter.knownData.train_loss)
+    # generate randomized data and evaluate the test error
+    F4i_unphysical_test = generate_random_F4(n_generate, NF, device, max_fluxfac=generate_max_fluxfac)
+    F4i_0ff_train = generate_stable_F4_zerofluxfac(n_generate, NF, device)
+    F4i_0ff_test = generate_stable_F4_zerofluxfac(n_generate, NF, device)
+    F4i_1f_train = generate_stable_F4_oneflavor(n_generate, NF, device)
+    F4i_1f_test = generate_stable_F4_oneflavor(n_generate, NF, device)
+
+    epochs_already_done = len(plotter.data["knownData"].train_loss)
     for t in range(epochs_already_done, epochs):
 
-        # generate randomized data and evaluate the test error
-        F4i_unphysical = generate_random_F4(n_generate, NF, device)
-        F4i_0ff = generate_stable_F4_zerofluxfac(n_generate, NF, device)
-        F4i_1f = generate_stable_F4_oneflavor(n_generate, NF, device)
+        # generate more unphysical test data
+        F4i_unphysical_train = generate_random_F4(n_generate*10, NF, device, max_fluxfac=generate_max_fluxfac)
 
         # log the test error
-        p.knownData.test_loss[t],  p.knownData.test_err[t]  = optimizer.test(model, F4i_test,  F4f_test,  comparison_loss_fn)
-        p.knownData_FS.test_loss[t],  p.knownData_FS.test_err[t]  = optimizer.test(model, F4f_test,  F4f_test,  comparison_loss_fn)
-        p.NSM.test_loss[t],  p.NSM.test_err[t]  = optimizer.test(model, F4_NSM_test,  F4_NSM_test,  comparison_loss_fn)
-        p.unphysical.test_loss[t],  p.unphysical.test_err[t]  = optimizer.test(model, F4i_unphysical, None, unphysical_loss_fn)
-        p.zerofluxfac.test_loss[t],  p.zerofluxfac.test_err[t]  = optimizer.test(model, F4i_0ff, F4i_0ff, comparison_loss_fn)
-        p.oneflavor.test_loss[t],  p.oneflavor.test_err[t]  = optimizer.test(model, F4i_1f, F4i_1f, comparison_loss_fn)
-
+        p.data["knownData"].test_loss[t],  p.data["knownData"].test_err[t]  = optimizer.test(model, F4i_test,  F4f_test,  comparison_loss_fn, conserve_lepton_number, bound_to_physical)
+        p.data["unphysical"].test_loss[t],  p.data["unphysical"].test_err[t]  = optimizer.test(model, F4i_unphysical_test, None, unphysical_loss_fn, conserve_lepton_number, bound_to_physical)
+        p.data["0ff"].test_loss[t],  p.data["0ff"].test_err[t]  = optimizer.test(model, F4i_0ff_test, F4i_0ff_test, comparison_loss_fn, conserve_lepton_number, bound_to_physical)
+        p.data["1f"].test_loss[t],  p.data["1f"].test_err[t]  = optimizer.test(model, F4i_1f_test, F4i_1f_test, comparison_loss_fn, conserve_lepton_number, bound_to_physical)
+        p.data["finalstable"].test_loss[t],  p.data["finalstable"].test_err[t]  = optimizer.test(model, F4f_train, F4f_train, comparison_loss_fn, conserve_lepton_number, bound_to_physical)
 
         # load in a batch of data from the dataset
-        for F4i_batch, F4f_batch in dataloader:
+        if True: #with torch.autograd.detect_anomaly():
+            for F4i_batch, F4f_batch in dataloader:
 
-            # zero the gradients
-            optimizer.optimizer.zero_grad()
+                # zero the gradients
+                optimizer.optimizer.zero_grad()
 
-            # train on making sure the model prediction is correct
-            loss = optimizer.train(model, F4i_batch, F4f_batch, comparison_loss_fn)
-            loss.backward()
-
-            if do_augment_final_stable:
-                loss = optimizer.train(model, F4f_batch, F4f_batch, comparison_loss_fn)
+                # train on making sure the model prediction is correct
+                loss = optimizer.train(model, F4i_batch, F4f_batch, comparison_loss_fn, conserve_lepton_number, bound_to_physical)
                 loss.backward()
 
-            if do_NSM_stable:
-                loss = optimizer.train(model, F4_NSM_train, F4_NSM_train, comparison_loss_fn)
-                loss.backward()
+                if do_augment_final_stable:
+                    loss = optimizer.train(model, F4f_batch, F4f_batch, comparison_loss_fn, conserve_lepton_number, bound_to_physical)
+                    loss.backward()
 
-            # train on making sure the model prediction is physical
-            if do_unphysical_check:
-                loss = optimizer.train(model, F4i_unphysical, None, unphysical_loss_fn)
-                loss.backward()
+                if do_augment_1f:
+                    loss = optimizer.train(model, F4i_1f_train, F4i_1f_train, comparison_loss_fn, conserve_lepton_number, bound_to_physical) * 100
+                    loss.backward()
 
-            # train on making sure known stable distributions dont change
-            if do_trivial_stable:
-                loss = optimizer.train(model, F4i_0ff, F4i_0ff, comparison_loss_fn)
-                loss.backward()
+                if do_augment_0ff:
+                    loss = optimizer.train(model, F4i_0ff_train, F4i_0ff_train, comparison_loss_fn, conserve_lepton_number, bound_to_physical) * 100
+                    loss.backward()
 
-                loss = optimizer.train(model, F4i_1f, F4i_1f, comparison_loss_fn)
-                loss.backward()
+                # train on making sure the model prediction is physical
+                if do_unphysical_check:
+                    loss = optimizer.train(model, F4i_unphysical_train, None, unphysical_loss_fn, conserve_lepton_number, bound_to_physical) * 100
+                    loss.backward()
 
-            # take a step with the optimizer    
-            optimizer.optimizer.step()
+                optimizer.optimizer.step()
 
         # Evaluate training errors
-        p.knownData.train_loss[t], p.knownData.train_err[t] = optimizer.test(model, F4i_train, F4f_train, comparison_loss_fn)
-        if do_augment_final_stable:
-            p.knownData_FS.train_loss[t], p.knownData_FS.train_err[t] = optimizer.test(model, F4f_train, F4f_train, comparison_loss_fn)
-        if do_NSM_stable:
-            p.NSM.train_loss[t], p.NSM.train_err[t] = optimizer.test(model, F4_NSM_train, F4_NSM_train, comparison_loss_fn)    
+        p.data["knownData"].train_loss[t], p.data["knownData"].train_err[t] = optimizer.test(model, F4i_train, F4f_train, comparison_loss_fn,conserve_lepton_number, bound_to_physical)
+        p.data["unphysical"].train_loss[t], p.data["unphysical"].train_err[t] = optimizer.test(model, F4i_unphysical_train, None, unphysical_loss_fn, conserve_lepton_number, bound_to_physical)
+        p.data["0ff"].train_loss[t], p.data["0ff"].train_err[t] = optimizer.test(model, F4i_0ff_train, F4i_0ff_train, comparison_loss_fn, conserve_lepton_number, bound_to_physical)
+        p.data["1f"].train_loss[t], p.data["1f"].train_err[t] = optimizer.test(model, F4i_1f_train, F4i_1f_train, comparison_loss_fn, conserve_lepton_number, bound_to_physical)
+        p.data["finalstable"].train_loss[t], p.data["finalstable"].train_err[t] = optimizer.test(model, F4f_train, F4f_train, comparison_loss_fn, conserve_lepton_number, bound_to_physical)
+
+        # update the learning rate
+        netloss = p.data["knownData"].train_loss[t] + p.data["unphysical"].train_loss[t]*100 + p.data["0ff"].train_loss[t]*100 + p.data["1f"].train_loss[t]*100 + p.data["finalstable"].train_loss[t]
+        scheduler.step(netloss)
 
         # report max error
         if((t+1)%print_every==0):
             print(f"Epoch {t+1}")
-            print("Train loss:",      p.knownData.train_loss[t])
-            print("Test loss:",       p.knownData.test_loss[t])
-            print("Test FS loss:",       p.knownData_FS.test_loss[t])
-            print("Test NSM loss:",       p.NSM.test_loss[t])
-            print("Test unphysical loss:",       p.unphysical.test_loss[t])
-            print("Test zerofluxfac loss:",       p.zerofluxfac.test_loss[t])
-            print("Test oneflavor loss:",       p.oneflavor.test_loss[t])
+            print("lr =",scheduler._last_lr)
+            for key in p.data.keys():
+                print(key, np.sqrt(p.data[key].train_loss[t]),  np.sqrt(p.data[key].test_loss[t]))
             
             print()
 
-    return model, optimizer, p
+    return model, optimizer, scheduler, p
+
+
+def train_stability_model(model,
+                optimizer,
+                scheduler,
+                plotter,
+                NF,
+                epochs,
+                n_generate,
+                generate_max_fluxfac,
+                print_every,
+                device,
+                n_equatorial,
+                zero_weight,
+                loss_function):
+    
+    print("Training dataset size:",n_generate)
+
+    # create a new plotter object of larger size if epochs is larger than the plotter object
+    p = Plotter(epochs,["random","heavy","0ff","1f"])
+    p.fill_from_plotter(plotter)
+
+    # set up training datasets
+    F4i_random = generate_random_F4(n_generate, NF, 'cpu', zero_weight=zero_weight, max_fluxfac=generate_max_fluxfac)
+    unstable_random = has_crossing(F4i_random.detach().numpy(), NF, n_equatorial)
+    print("Random Stable:",np.sum(unstable_random==False))
+    print("Random Unstable:",np.sum(unstable_random==True))
+
+    F4i_heavy = generate_random_F4(n_generate, NF, 'cpu', zero_weight=zero_weight, max_fluxfac=generate_max_fluxfac)
+    F4i_heavy[:,:,:,1:] = torch.mean(F4i_heavy[:,:,:,1:], dim=3)[:,:,:,None]
+    F4i_heavy = augment_permutation(F4i_heavy)
+    unstable_heavy = has_crossing(F4i_heavy.detach().numpy(), NF, n_equatorial)
+    print("Heavy Stable:",np.sum(unstable_random==False))
+    print("Heavy Unstable:",np.sum(unstable_random==True))
+
+    F4i_0ff = generate_stable_F4_zerofluxfac(n_generate, NF, device)
+    unstable_0ff = torch.zeros((n_generate,1), device=device)
+
+    F4i_1f = generate_stable_F4_oneflavor(n_generate, NF, device)
+    unstable_1f = torch.zeros((F4i_1f.shape[0],1), device=device)
+
+    # move data to device
+    F4i_random = F4i_random.float().to(device)
+    unstable_random = torch.tensor(unstable_random).to(device)
+    F4i_heavy = F4i_heavy.float().to(device)
+    unstable_heavy = torch.tensor(unstable_heavy).to(device)
+
+    #===============#
+    # training loop #
+    #===============#
+    epochs_already_done = len(plotter.data["random"].train_loss)
+    for t in range(epochs_already_done, epochs):
+
+        # log the test error
+        p.data["random"].test_loss[t],  p.data["random"].test_err[t]  = optimizer.test(model, F4i_random,  unstable_random,  loss_function)
+        p.data["heavy"].test_loss[t],  p.data["heavy"].test_err[t]  = optimizer.test(model, F4i_heavy, unstable_heavy, loss_function)
+        p.data["0ff"].test_loss[t],  p.data["0ff"].test_err[t]  = optimizer.test(model, F4i_0ff, unstable_0ff, loss_function)
+        p.data["1f"].test_loss[t],  p.data["1f"].test_err[t]  = optimizer.test(model, F4i_1f, unstable_1f, loss_function)
+
+        # zero the gradients
+        optimizer.optimizer.zero_grad()
+
+        # train the model
+        loss = optimizer.train(model, F4i_random, unstable_random, loss_function)
+        loss.backward()
+
+        #loss = optimizer.train(model, F4i_heavy, unstable_heavy, loss_function)
+        #loss.backward()
+
+        loss = optimizer.train(model, F4i_0ff, unstable_0ff, loss_function)
+        loss.backward()
+
+        loss = optimizer.train(model, F4i_1f, unstable_1f, loss_function)
+        loss.backward()
+
+        # take a step with the optimizer    
+        optimizer.optimizer.step()
+
+        # Evaluate training errors
+        p.data["random"].train_loss[t], p.data["random"].train_err[t] = optimizer.test(model, F4i_random, unstable_random, loss_function)
+        p.data["heavy"].train_loss[t], p.data["heavy"].train_err[t] = optimizer.test(model, F4i_heavy, unstable_heavy, loss_function)
+        p.data["0ff"].train_loss[t], p.data["0ff"].train_err[t] = optimizer.test(model, F4i_0ff, unstable_0ff, loss_function)
+        p.data["1f"].train_loss[t], p.data["1f"].train_err[t] = optimizer.test(model, F4i_1f, unstable_1f, loss_function)
+
+        # update the learning rate
+        netloss = p.data["random"].train_loss[t] + p.data["heavy"].train_loss[t] + p.data["0ff"].train_loss[t] + p.data["1f"].train_loss[t]
+        scheduler.step()#netloss)
+
+        # report max error
+        if((t+1)%print_every==0):
+            print(f"Epoch {t+1}")
+            print("lr =",scheduler._last_lr)
+            for key in p.data.keys():
+                print(key, p.data[key].train_loss[t],  p.data[key].test_loss[t])            
+            print()
+
+    return model, optimizer, scheduler, p
