@@ -86,7 +86,7 @@ int main(int argc, const char* argv[]){
    hsize_t offset[4]; //hyperslab offset in the file
    hsize_t count[4]; //size of the hyperslab in the file;
    offset[0] = 0;
-   offset[1] = 136;
+   offset[1] = 100;
    offset[2] = 100;
    offset[3] = 80;
    count[0] = 3; //3 --> x,y,z given by the first index of the dataset
@@ -130,7 +130,7 @@ int main(int argc, const char* argv[]){
 
    hsize_t offsett[3]; // hyperslab offset in the file
    hsize_t countt[3];  // size of the hyperslab in the file
-   offsett[0] = 136; 
+   offsett[0] = 100; 
    offsett[1] = 100; 
    offsett[2] = 80; 
    countt[0] = xgrid;

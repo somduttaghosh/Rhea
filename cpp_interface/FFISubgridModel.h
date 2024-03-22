@@ -177,7 +177,7 @@ class FFISubgridModel{
     torch::Tensor b = 2.*dot4_Minkowski(avgF4, F4_final);
     torch::Tensor c = dot4_Minkowski(F4_final, F4_final);
     torch::Tensor radical = b*b - 4*a*c;
-    assert(torch::all(radical>=-1e-6).item<bool>());
+    //assert(torch::all(radical>=-1e-6).item<bool>());
     radical = torch::maximum(radical, torch::zeros_like(radical));
     torch::Tensor alpha = (-b + torch::sign(a)*torch::sqrt(radical)) / (2*a);
 

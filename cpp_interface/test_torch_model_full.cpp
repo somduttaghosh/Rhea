@@ -9,11 +9,11 @@
 using namespace H5;
 using namespace std;
 using namespace std::chrono;
-const H5std_string INFILE_NAME("model_rl0_orthonormal.h5"); // input file
+const H5std_string INFILE_NAME("model_rl2_orthonormal.h5"); // input file
 
-const int xgrid = 201;
-const int ygrid = 10;
-const int zgrid = 101;
+const int xgrid = 256;
+const int ygrid = 256;
+const int zgrid = 1;
 
 const int ngridzones = xgrid*ygrid*zgrid;
 //======//
@@ -93,8 +93,8 @@ int main(int argc, const char* argv[]){
    hsize_t count[4]; //size of the hyperslab in the file;
    offset[0] = 0;
    offset[1] = 0;
-   offset[2] = 100;
-   offset[3] = 0;
+   offset[2] = 0;
+   offset[3] = 129;
    count[0] = 3; //3 --> x,y,z given by the first index of the dataset
    count[1] = xgrid; 
    count[2] = ygrid;
@@ -137,8 +137,8 @@ int main(int argc, const char* argv[]){
    hsize_t offsett[3]; // hyperslab offset in the file
    hsize_t countt[3];  // size of the hyperslab in the file
    offsett[0] = 0; 
-   offsett[1] = 100; 
-   offsett[2] = 0; 
+   offsett[1] = 0; 
+   offsett[2] = 129; 
    countt[0] = xgrid;
    countt[1] = ygrid;
    countt[2] = zgrid;
@@ -244,8 +244,9 @@ int main(int argc, const char* argv[]){
   torch::Tensor X, y;
   
   int maxi(0);
-  cout << "Number of iterations (> 0)?" << endl;
-  cin >> maxi;
+  maxi = 10;
+  cout << "Number of iterations (> 0)?" << maxi << endl;
+  //cin >> maxi;
   
   cout << "Start of ML calculation" << endl;
   auto time_start = high_resolution_clock::now();
@@ -280,6 +281,6 @@ int main(int argc, const char* argv[]){
   cout << "output" << F4_out << endl;
  // assert(torch::allclose(output, F4_expected, 1e-2, 1e-2));
  
- //torch::save({F4_in, F4_out}, "tensor.pt");
+ torch::save({F4_in, F4_out}, "tensor_rl2_z130.pt");
  return 0;
 }
